@@ -1,6 +1,5 @@
 # HiMORA + SABS
 
-Minimal, simulator-independent implementation for anonymous review.
 
 **HiMORA** stands for **HI**story-conditioned **M**ulti-stage **O**utcome Modeling
 for Budget **R**e**A**llocation. It predicts future stage outcomes from completed
@@ -8,15 +7,11 @@ stage feedback and candidate budgets. **Support-Aware Budget Search (SABS)** use
 the trained model to select the next stage budget online.
 
 This release contains the model, training objective, validated data loader,
-randomized-budget support definition, and online search. It deliberately excludes
-experimental datasets, production logs, pretrained checkpoints, baseline
-implementations, auction simulators, paper figures, and historical results.
-No API key, external model service, or network connection is needed at runtime.
+randomized-budget support definition, and online search. 
 
 ## 1. Installation
 
 Python 3.9 or later is required. Runtime dependencies are NumPy and PyTorch.
-CPU execution is sufficient for the demo and tests. CUDA is optional for training.
 
 ```bash
 python -m pip install -e .
@@ -30,12 +25,11 @@ python -m himora --help
 ```
 
 Install a PyTorch build appropriate for your hardware if needed. The dependency
-ranges are declared in `pyproject.toml`; the exact environment used to verify this
-release is recorded in `VERIFICATION.md`.
+ranges are declared in `pyproject.toml`.
 
 ## 2. Quick start
 
-Run an end-to-end CPU execution check:
+Run an end-to-end execution check:
 
 ```bash
 python -m himora demo --output outputs/demo --steps 20 --seed 7
@@ -72,7 +66,7 @@ bundled dataset. The required fields are:
 | `auction_volume` | Observed nonnegative stage traffic/auction statistic |
 | `market_price` | Observed nonnegative stage market-price statistic |
 
-An illustrative record (not a supplied experiment observation):
+An illustrative record:
 
 ```json
 {"episode": 0, "player_index": 0, "stage_idx": 0, "daily_budget": 100.0, "assigned_budget": 15.0, "spend": 10.0, "value": 0.4, "remaining_budget": 90.0, "auction_volume": 200.0, "market_price": 0.05}
@@ -207,52 +201,5 @@ data collection and coverage. If your logging policy differs, replace this
 support definition accordingly. The package does not perform offline policy
 evaluation or claim outcomes for unobserved decisions as measured results.
 
-## 6. Configuration reference
 
-| Section | Key | Meaning |
-| --- | --- | --- |
-| Training | `hidden_dim`, `num_heads`, `num_layers`, `dropout` | History encoder architecture |
-| Training | `history_mode` | `full`, `last`, or `none` history input |
-| Training | `pretrain_steps`, `finetune_steps` | One-step and joint multi-stage optimization steps |
-| Training | `batch_size`, `lr`, `grad_clip` | Optimizer settings |
-| Training | `max_horizon`, `lambda_ms`, `gamma` | Maximum training distance, multi-stage weight, discount |
-| Training | `alpha_C`, `alpha_V`, `alpha_N`, `huber_delta` | Spend, value, market-statistics loss weights and Huber threshold |
-| Training | `epsilon` | Numerical safeguard for relative budgets |
-| Training | `eval_interval`, `seed` | Validation frequency and training seed |
-| Search | `num_basis`, `rounds`, `samples`, `elites` | Basis count, search rounds, candidates per round, retained candidates |
-| Search | `initial_std`, `coefficient_bound` | Initial Gaussian proposal scale and coefficient bound |
-| Search | `lambda_leftover`, `lambda_adjustment` | Score penalties in the chosen value units |
-| Search | `eps0`, `seed` | Baseline-weight safeguard and search seed |
-| Search | `support_enabled`, `rollout_mode`, `basis_mode` | Support checks, state update, schedule parameterization |
-| Support | `rho` | Actual logging perturbation radius |
 
-Seeds control training and search sampling. Identical settings on the same
-software/hardware stack are intended to be repeatable; bitwise equivalence across
-CPU/GPU builds or PyTorch versions is not guaranteed. Do not tune settings on test
-days. Score penalties depend on the units of value and budget and may need
-validation-based adjustment when transferring to another task.
-
-## 7. Repository structure
-
-```text
-himora/
-  model.py       # Three-module HiMORA and checkpoint loading
-  training.py    # One-step and multi-stage training; forecast evaluation
-  data.py        # Validated stage logs and train-only normalization
-  search.py      # SABS candidate construction, scoring, and selection
-  support.py     # Randomized logging policy and conditional support
-  contracts.py   # Decision context and output interfaces
-  demo.py        # Runtime-generated toy example
-  __main__.py    # Command-line interface
-config/default.json
-tests/test_core.py
-```
-
-## 8. Scope of this release
-
-This is a core-method artifact, not a full experimental reproduction package.
-Data collection, bidding/auction execution, baseline comparisons, and paper
-figure generation are outside its scope. To integrate it into an existing
-advertising system, supply stage-level records, the original schedule, logging
-weights, and a stage-budget execution interface. No company infrastructure or
-proprietary dataset is needed to inspect and run the core implementation.
