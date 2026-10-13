@@ -1,22 +1,16 @@
 # HiMORA + SABS
 
-Minimal, simulator-independent implementation for anonymous review.
-
 **HiMORA** stands for **HI**story-conditioned **M**ulti-stage **O**utcome Modeling
 for Budget **R**e**A**llocation. It predicts future stage outcomes from completed
 stage feedback and candidate budgets. **Support-Aware Budget Search (SABS)** uses
 the trained model to select the next stage budget online.
 
 This release contains the model, training objective, validated data loader,
-randomized-budget support definition, and online search. It deliberately excludes
-experimental datasets, production logs, pretrained checkpoints, baseline
-implementations, auction simulators, paper figures, and historical results.
-No API key, external model service, or network connection is needed at runtime.
+randomized-budget support definition, and online search. 
 
 ## 1. Installation
 
 Python 3.9 or later is required. Runtime dependencies are NumPy and PyTorch.
-CPU execution is sufficient for the demo and tests. CUDA is optional for training.
 
 ```bash
 python -m pip install -e .
@@ -30,34 +24,22 @@ python -m himora --help
 ```
 
 Install a PyTorch build appropriate for your hardware if needed. The dependency
-ranges are declared in `pyproject.toml`; the exact environment used to verify this
-release is recorded in `VERIFICATION.md`.
+ranges are declared in `pyproject.toml`.
 
 ## 2. Quick start
 
-Run an end-to-end CPU execution check:
+Run an end-to-end execution check:
 
 ```bash
 python -m himora demo --output outputs/demo --steps 20 --seed 7
 python -m unittest discover -s tests -v
 ```
 
-The demo generates a **tiny artificial dataset at runtime**, trains a small
-HiMORA, reloads the checkpoint, checks a multi-stage forecast, and runs SABS at
-every decision point of a toy day. Only the selected next budget is executed.
-New observed feedback is appended before the next decision. The final JSON output
-contains `"status": "passed"` when the execution checks succeed.
-
-The demo writes its generated logs and checkpoint under `outputs/demo/`. These
-are local runtime outputs, not files distributed with this release. Use a new
-output directory for another run; the demo does not overwrite existing artifacts.
-Its six-stage, 16-dimensional model is intentionally small. **The demo is not a
-reproduction of the paper's experiments and does not establish performance gains.**
+The demo writes its generated logs and checkpoint under `outputs/demo/`. 
 
 ## 3. Training data interface
 
-Provide JSON Lines files, with one campaign-stage record per line. There is no
-bundled dataset. The required fields are:
+Provide JSON Lines files, with one campaign-stage record per line. The required fields are:
 
 | Field | Meaning |
 | --- | --- |
@@ -85,12 +67,6 @@ negative observations, spending above the assigned budget, and inconsistent
 remaining-budget updates. Assigned budgets cannot exceed the actual budget
 remaining before their stage. Budgets and spend must use the same monetary unit.
 
-Split by **day**, not by stage: every campaign sharing a day must remain in the
-same split. Training and validation episode IDs must be disjoint; the loader
-checks this. Keep test days separate as well. Outcome normalization is fitted
-only on training records. A data file hash and day-level split manifest are saved
-with each trained model. Generated metadata stores filenames, not machine-specific
-absolute paths.
 
 ## 4. Train and evaluate HiMORA
 
@@ -111,8 +87,7 @@ HiMORA contains three jointly trained modules:
 3. A GRU transition module propagates predicted states over future stages.
 
 Training first uses one-step prediction and then adds a discounted multi-stage
-loss. Future observed budgets are provided during training, but future observed
-outcomes are **not** fed back into the recursive predictions. Validation selects
+loss. Future observed budgets are provided during training. Validation selects
 the best eligible checkpoint; no test data enters this selection.
 
 Outputs are `model.pt`, `metadata.json`, and `split_manifest.json`. Evaluation
@@ -126,7 +101,7 @@ serialized Python object format.
 
 ## 5. Online SABS decisions
 
-SABS is a **deployment-time decision algorithm**, not part of HiMORA training.
+SABS is a **deployment-time decision algorithm**.
 Call it before the next stage, after receiving real feedback from completed
 stages. It searches with frozen model parameters.
 
@@ -206,53 +181,3 @@ identification. Using the model to compare alternative budgets requires suitable
 data collection and coverage. If your logging policy differs, replace this
 support definition accordingly. The package does not perform offline policy
 evaluation or claim outcomes for unobserved decisions as measured results.
-
-## 6. Configuration reference
-
-| Section | Key | Meaning |
-| --- | --- | --- |
-| Training | `hidden_dim`, `num_heads`, `num_layers`, `dropout` | History encoder architecture |
-| Training | `history_mode` | `full`, `last`, or `none` history input |
-| Training | `pretrain_steps`, `finetune_steps` | One-step and joint multi-stage optimization steps |
-| Training | `batch_size`, `lr`, `grad_clip` | Optimizer settings |
-| Training | `max_horizon`, `lambda_ms`, `gamma` | Maximum training distance, multi-stage weight, discount |
-| Training | `alpha_C`, `alpha_V`, `alpha_N`, `huber_delta` | Spend, value, market-statistics loss weights and Huber threshold |
-| Training | `epsilon` | Numerical safeguard for relative budgets |
-| Training | `eval_interval`, `seed` | Validation frequency and training seed |
-| Search | `num_basis`, `rounds`, `samples`, `elites` | Basis count, search rounds, candidates per round, retained candidates |
-| Search | `initial_std`, `coefficient_bound` | Initial Gaussian proposal scale and coefficient bound |
-| Search | `lambda_leftover`, `lambda_adjustment` | Score penalties in the chosen value units |
-| Search | `eps0`, `seed` | Baseline-weight safeguard and search seed |
-| Search | `support_enabled`, `rollout_mode`, `basis_mode` | Support checks, state update, schedule parameterization |
-| Support | `rho` | Actual logging perturbation radius |
-
-Seeds control training and search sampling. Identical settings on the same
-software/hardware stack are intended to be repeatable; bitwise equivalence across
-CPU/GPU builds or PyTorch versions is not guaranteed. Do not tune settings on test
-days. Score penalties depend on the units of value and budget and may need
-validation-based adjustment when transferring to another task.
-
-## 7. Repository structure
-
-```text
-himora/
-  model.py       # Three-module HiMORA and checkpoint loading
-  training.py    # One-step and multi-stage training; forecast evaluation
-  data.py        # Validated stage logs and train-only normalization
-  search.py      # SABS candidate construction, scoring, and selection
-  support.py     # Randomized logging policy and conditional support
-  contracts.py   # Decision context and output interfaces
-  demo.py        # Runtime-generated toy example
-  __main__.py    # Command-line interface
-config/default.json
-tests/test_core.py
-```
-
-## 8. Scope of this release
-
-This is a core-method artifact, not a full experimental reproduction package.
-Data collection, bidding/auction execution, baseline comparisons, and paper
-figure generation are outside its scope. To integrate it into an existing
-advertising system, supply stage-level records, the original schedule, logging
-weights, and a stage-budget execution interface. No company infrastructure or
-proprietary dataset is needed to inspect and run the core implementation.
