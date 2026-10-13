@@ -150,8 +150,6 @@ to the original baseline proportionally rescaled to actual remaining budget.
 The fallback is business-feasible but is not guaranteed to lie within logging
 support; `diagnostics` explicitly records this case.
 
-Execute **only `decision.budget`**. `decision.schedule` contains budgets constructed along predicted states, not a fixed schedule to execute. Its sum need not equal the current remaining budget, because later budgets incorporate predicted unspent money. Re-run SABS with real feedback after the stage ends; do not use its predicted suffix to update the original baseline.
-
 The demo also creates an online context file for the command-line interface:
 
 ```bash
